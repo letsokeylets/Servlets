@@ -4,7 +4,7 @@ import ru.netology.exception.NotFoundException;
 import ru.netology.model.Post;
 
 import java.util.*;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -13,25 +13,23 @@ import java.util.concurrent.atomic.AtomicLong;
 public class PostRepository {
 
     private AtomicLong numId = new AtomicLong(0);
-    private List<Post> listPost = new CopyOnWriteArrayList<>();
+    private ConcurrentHashMap<Long, Post> listPost = new ConcurrentHashMap();
 
     /**
      * Метод для вывода всех элементов Post
      */
     public List<Post> all() {
-        return listPost;
+        return new ArrayList<>(listPost.values());
     }
 
     /**
      * Метод для получения Post по id
      */
     public Optional<Post> getById(long id) {
-        Post post = findPostForId(id);
-        if (post != null) {
-            return Optional.of(post);
+        if (listPost.containsKey(id)) {
+            return Optional.of(listPost.get(id));
         }
-        printException(id);
-        return Optional.empty();
+        throw new NotFoundException("Не найдена запись с id = " + id);
     }
 
     /**
@@ -41,12 +39,12 @@ public class PostRepository {
         long id = post.getId();
         if (id == 0) {
             post = new Post(numId.incrementAndGet(), post.getContent());
-            listPost.add(post);
+            listPost.put(post.getId(), post);
         } else {
-            if (findPostId(id, post)) {
-                return post;
+            if (listPost.containsKey(id)) {
+                listPost.put(id, post);
             } else {
-                printException(id);
+                throw new NotFoundException("Не найдена запись с id = " + id);
             }
         }
         return post;
@@ -56,43 +54,11 @@ public class PostRepository {
      * Метод для удаления Post по id
      */
     public void removeById(long id) {
-        Post post = findPostForId(id);
-        if (post != null) {
-            listPost.remove(post);
+        if (listPost.containsKey(id)) {
+            listPost.remove(id);
         } else {
-            printException(id);
+            throw new NotFoundException("Не найдена запись с id = " + id);
         }
     }
 
-    /**
-     * Перезапись Post с существующим айди
-     */
-    private boolean findPostId(long id, Post post) {
-        Post postForList = findPostForId(id);
-        if (postForList != null) {
-            listPost.remove(postForList);
-            listPost.add(post);
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * Помск Post по id среди существующих
-     */
-    private Post findPostForId(long id) {
-        for (Post post : listPost) {
-            if (post.getId() == id) {
-                return post;
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Печать ошибки о не найденной записи
-     */
-    private void printException(long id) {
-        throw new NotFoundException("Не найдена запись с id = " + id);
-    }
 }
